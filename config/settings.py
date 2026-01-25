@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-e_uh!o(s#day4oj^)c@wmobtek^f939=g=dsn3=t)+261+h-4!
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["http://kivipay-backend-production.up.railway.app"]
 
 
 # Application definition
