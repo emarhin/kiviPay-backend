@@ -33,7 +33,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('authentications.urls')),
     path('api/', include('paychannel.urls')),
-    # path('api/', include('payment.urls')),
+    path('api/', include('payment.urls')),
     
     
     
