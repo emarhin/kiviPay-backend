@@ -1,6 +1,4 @@
-# Use Python 3.9 slim version
-FROM python:3.9-slim-buster
-
+FROM python:3.9-slim-bullseye
 # Prevent Python from creating .pyc files & enable unbuffered output
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
