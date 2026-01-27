@@ -1,4 +1,5 @@
-FROM python:3.9-slim-bullseye
+FROM python:3.13-slim-bookworm
+
 # Prevent Python from creating .pyc files & enable unbuffered output
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1

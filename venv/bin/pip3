@@ -1,5 +1,5 @@
 #!/bin/sh
-'''exec' "/Users/earhin/Desktop/prd/kiviPay backend/venv/bin/python3" "$0" "$@"
+'''exec' "/Users/earhin/Desktop/prd/kiviPay backend/venv/bin/python3.13" "$0" "$@"
 ' '''
 # -*- coding: utf-8 -*-
 import re

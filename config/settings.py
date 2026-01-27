@@ -10,11 +10,21 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 from datetime import timedelta
+from dotenv import load_dotenv
+
+
+# Load .env file
+load_dotenv()
+
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
 
 
 # Quick-start development settings - unsuitable for production
@@ -26,7 +36,7 @@ SECRET_KEY = 'django-insecure-e_uh!o(s#day4oj^)c@wmobtek^f939=g=dsn3=t)+261+h-4!
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["kivipay-backend-production.up.railway.app"]
+ALLOWED_HOSTS = ["kivipay-backend-production.up.railway.app","127.0.0.1"]
 
 
 # Application definition
@@ -214,6 +224,11 @@ SPECTACULAR_SETTINGS = {
     
     # 'AUTHENTICATION_WHITELIST': ['/auth/login/', '/auth/registration/'],  # optional
 }
+
+
+
+# Paystack keys
+PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY")
 
 #added config end here........................
 
