@@ -237,6 +237,12 @@ PAYSWITCH_API_KEY = os.getenv("THELLER_API_KEY")
 PAYSWITCH_USERNAME = os.getenv("THELLER_USERNAME")
 
 
+CSRF_TRUSTED_ORIGINS = [
+"https://kivipay-backend-production.up.railway.app",
+# add your frontend domain(s) if needed
+]
+
+
 #added config end here........................
 
 
