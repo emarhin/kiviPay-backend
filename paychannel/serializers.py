@@ -80,10 +80,10 @@ class PaymentChannelStatsSerializer(serializers.Serializer):
         # Count of all payments for this channel
         return obj.payments.count()
 
-    def get_paylink_amount(self, obj):
-        # Sum of all payments made via Paylink
-        return obj.payments.filter(method="paylink", status="success").aggregate(total=Sum("amount"))["total"] or 0
+    # def get_paylink_amount(self, obj):
+    #     # Sum of all payments made via Paylink
+    #     return obj.payments.filter(, status="success").aggregate(total=Sum("amount"))["total"] or 0
 
-    def get_ussd_amount(self, obj):
-        # Sum of all payments made via USSD
-        return obj.payments.filter(method="ussd", status="success").aggregate(total=Sum("amount"))["total"] or 0
+    # def get_ussd_amount(self, obj):
+    #     # Sum of all payments made via USSD
+    #     return obj.payments.filter(method="ussd", status="success").aggregate(total=Sum("amount"))["total"] or 0

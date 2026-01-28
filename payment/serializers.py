@@ -22,10 +22,16 @@ class CreatePaymentSerializer(serializers.ModelSerializer):
         required=False,
         allow_blank=True
     )
+    
+    channel_type = serializers.ChoiceField(
+        choices=Payment.CHANNEL_TYPE,
+        write_only=True
+        )
+
 
     class Meta:
         model = Payment
-        fields = ["slug", "amount", "charge_type", "phone_number", "email"]
+        fields = ["slug", "amount", "charge_type", "phone_number","channel_type", "email"]
 
     def validate(self, attrs):
         charge_type = attrs.get("charge_type")

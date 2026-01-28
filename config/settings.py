@@ -230,6 +230,13 @@ SPECTACULAR_SETTINGS = {
 # Paystack keys
 PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY")
 
+
+# payswitch keys 
+PAYSWITCH_MERCHANT_ID = os.getenv("THELLER_MERCHANT_ID")
+PAYSWITCH_API_KEY = os.getenv("THELLER_API_KEY")
+PAYSWITCH_USERNAME = os.getenv("THELLER_USERNAME")
+
+
 #added config end here........................
 
 

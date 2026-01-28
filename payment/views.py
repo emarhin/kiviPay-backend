@@ -8,6 +8,8 @@ from rest_framework import status
 
 from drf_spectacular.utils import extend_schema, OpenApiExample
 
+from payment.payswitch import PaySwitchMobileMoney
+
 from .models import Payment
 from .serializers import CreatePaymentSerializer, VerifyPaymentOTPSerializer
 from paychannel.models import PaymentChannel
@@ -45,6 +47,8 @@ from config.settings import PAYSTACK_SECRET_KEY
                 "amount": 100.00,
                 "charge_type": "momo",
                 "phone_number": "0551234987",
+                "email": "q7mYI@example.com",
+                "channel_type": "paylink" or "ussd" 
             },
             request_only=True,
         )
@@ -57,14 +61,13 @@ class CreatePaymentAPIView(APIView):
     def post(self, request):
         serializer = CreatePaymentSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
         slug = serializer.validated_data["slug"]
         amount = serializer.validated_data["amount"]
         charge_type = serializer.validated_data["charge_type"]
         phone_number = serializer.validated_data["phone_number"]
+        channel_type = serializer.validated_data["channel_type"]
         email = request.data.get("email")
         
-
         try:
             payment_channel = PaymentChannel.objects.get(slug=slug)
         except PaymentChannel.DoesNotExist:
@@ -78,6 +81,18 @@ class CreatePaymentAPIView(APIView):
         # print("secret key paystack", PAYSTACK_SECRET_KEY)
         
         match charge_type:
+            # case "momo":
+            #     if not phone_number:
+            #         return Response({"error": "Phone number is required for MoMo payments"},status=400)
+                    
+            #     #if no email generate email
+            #     if not email:
+            #         email =  f"{phone_number}@gmail.com"
+            
+            #     paymentInitiziation = PaystackMobileMoney(PAYSTACK_SECRET_KEY)
+            #     momo_charge = paymentInitiziation.charge(email, int(amount), "GHS", "MTN", phone_number, "", reference, {"key": "value"})
+            #     print(momo_charge)
+                
             case "momo":
                 if not phone_number:
                     return Response({"error": "Phone number is required for MoMo payments"},status=400)
@@ -85,10 +100,10 @@ class CreatePaymentAPIView(APIView):
                 #if no email generate email
                 if not email:
                     email =  f"{phone_number}@gmail.com"
-            
-                paymentInitiziation = PaystackMobileMoney(PAYSTACK_SECRET_KEY)
-                momo_charge = paymentInitiziation.charge(email, int(amount), "GHS", "MTN", phone_number, "", reference, {"key": "value"})
-                print(momo_charge)
+                
+                paymentInitiziation = PaySwitchMobileMoney()
+                momo_charge = paymentInitiziation.charge(email, int(amount), "GHS", "MTN", phone_number, "", reference, metadata={"description": "Mobile Money Payment"},)
+                # print(momo_charge)
             
             case "card":
                 return Response({"error": "Card payments are not supported yet"},status=400)
@@ -102,6 +117,8 @@ class CreatePaymentAPIView(APIView):
                 reference=reference,
                 email = email,
                 phone_number = phone_number,
+                channel_type = channel_type,
+                charge_type = charge_type,
                 status="pending",
             )
                  
@@ -112,6 +129,14 @@ class CreatePaymentAPIView(APIView):
                     "status": momo_charge.get("data").get("status"),
                 },
                 status=status.HTTP_201_CREATED,
+            )
+        if momo_charge.get("status") is False:
+            return Response(
+                {"message": momo_charge.get("message"),
+                  "payment_reference": reference,
+                  "status": momo_charge.get("data").get("status"),
+                 },
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
 
@@ -165,11 +190,8 @@ class MarkPaymentSuccessAPIView(APIView):
 
 
 
-
-
-
 @extend_schema(
-    summary="Verify MoMo OTP",
+    summary="Verify MoMo OTP - paystack",
     description=(
         "Verify the OTP sent to the customer after initiating a mobile money charge.\n\n"
         "⚠️ This endpoint only verifies the OTP. "

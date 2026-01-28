@@ -13,6 +13,16 @@ class Payment(models.Model):
         ("success", "Success"),
         ("failed", "Failed"),
     ]
+    
+    CHANNEL_TYPE = [
+        ("paylink", "Paylink"),
+        ("ussd", "USSD"),
+    ]
+    
+    CHARGE_TYPE =[
+        ("momo", "Mobile Money"),
+        ("card", "Card"),
+    ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     channel = models.ForeignKey("paychannel.PaymentChannel", on_delete=models.CASCADE, related_name="payments")
@@ -20,8 +30,9 @@ class Payment(models.Model):
     reference = models.CharField(max_length=100, unique=True)
     phone_number = models.CharField(max_length=20 , blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
-    charge_type = models.CharField(max_length=20, blank=True, null=True)
+    charge_type = models.CharField(max_length=20, choices=CHARGE_TYPE, blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    channel_type =  models.CharField(max_length=20, choices=CHANNEL_TYPE)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
