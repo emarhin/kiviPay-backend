@@ -140,7 +140,7 @@ class PaySwitchMobileMoney:
                 auth=self.auth,
                 headers=self.headers,
                 json=body,
-                timeout=30,
+                # timeout=30,
             )
             # response.raise_for_status()  # raise exception if HTTP 4xx/5xx
 
