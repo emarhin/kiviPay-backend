@@ -25,8 +25,8 @@ class PaystackMobileMoney:
     
     PESSEWA_MULTIPLIER = 100
 
-    def __init__(self, secret_key: str):
-        self.secret_key = secret_key
+    def __init__(self):
+        self.secret_key = settings.PAYSTACK_SECRET_KEY
         self.headers = {
             "Authorization": f"Bearer {self.secret_key}",
             "Content-Type": "application/json",

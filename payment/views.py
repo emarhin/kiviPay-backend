@@ -11,7 +11,7 @@ from drf_spectacular.utils import extend_schema, OpenApiExample
 from payment.payswitch import PaySwitchMobileMoney
 
 from .models import Payment
-from .serializers import CreatePaymentSerializer, VerifyPaymentOTPSerializer
+from .serializers import CreatePaymentSerializer, VerifyPaymentOTPSerializer, VerifyPaymentSerializer
 from paychannel.models import PaymentChannel
 from .paystack import PaystackMobileMoney
 from config.settings import PAYSTACK_SECRET_KEY
@@ -81,18 +81,6 @@ class CreatePaymentAPIView(APIView):
         # print("secret key paystack", PAYSTACK_SECRET_KEY)
         
         match charge_type:
-            # case "momo":
-            #     if not phone_number:
-            #         return Response({"error": "Phone number is required for MoMo payments"},status=400)
-                    
-            #     #if no email generate email
-            #     if not email:
-            #         email =  f"{phone_number}@gmail.com"
-            
-            #     paymentInitiziation = PaystackMobileMoney(PAYSTACK_SECRET_KEY)
-            #     momo_charge = paymentInitiziation.charge(email, int(amount), "GHS", "MTN", phone_number, "", reference, {"key": "value"})
-            #     print(momo_charge)
-                
             case "momo":
                 if not phone_number:
                     return Response({"error": "Phone number is required for MoMo payments"},status=400)
@@ -100,13 +88,25 @@ class CreatePaymentAPIView(APIView):
                 #if no email generate email
                 if not email:
                     email =  f"{phone_number}@gmail.com"
-                
-                paymentInitiziation = PaySwitchMobileMoney()
-                momo_charge = paymentInitiziation.charge(email, int(amount), "GHS", "MTN", phone_number, "", reference, metadata={"description": "Mobile Money Payment"},)
-                # print(momo_charge)
             
-            case "card":
-                return Response({"error": "Card payments are not supported yet"},status=400)
+                paymentInitiziation = PaystackMobileMoney()
+                momo_charge = paymentInitiziation.charge(email, int(amount), "GHS", "MTN", phone_number, "", reference, {"key": "value"})
+                print(momo_charge)
+                
+            # case "momo":
+            #     if not phone_number:
+            #         return Response({"error": "Phone number is required for MoMo payments"},status=400)
+                    
+            #     #if no email generate email
+            #     if not email:
+            #         email =  f"{phone_number}@gmail.com"
+                
+            #     paymentInitiziation = PaySwitchMobileMoney()
+            #     momo_charge = paymentInitiziation.charge(email, int(amount), "GHS", "MTN", phone_number, "", reference, metadata={"description": "Mobile Money Payment"},)
+            #     # print(momo_charge)
+            
+            # case "card":
+            #     return Response({"error": "Card payments are not supported yet"},status=400)
         
 
         
@@ -145,41 +145,90 @@ class CreatePaymentAPIView(APIView):
 # =========================================
 
 @extend_schema(
-    summary="Mark payment as successful",
+    summary="verify payment and change to success  if verified - payswitch",
     description=(
-        "Manually mark a payment as **success** using its reference. "
-        "This endpoint is typically used by admins or webhook simulations."
+        "This endpoint allows you to verify a payment and mark it as success",
+        "if the verification is successful."
     ),
-    request={
-        "type": "object",
-        "properties": {
-            "reference": {
-                "type": "string",
-                "example": "PAY-20260125153000123456",
-            }
-        },
-        "required": ["reference"],
-    },
+    request= VerifyPaymentSerializer,
+
     responses={
         200: {"description": "Payment marked as success"},
         404: {"description": "Payment not found"},
     },
     tags=["Payments"],
 )
-class MarkPaymentSuccessAPIView(APIView):
+class VerifyPaymentAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         reference = request.data.get("reference")
 
+        if not reference:
+            return Response(
+                {"error": "Payment reference is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Verify with payment gateway
+        gateway = PaySwitchMobileMoney()
+        response = gateway.verify(reference)
+
+        # 1. Gateway-level failure
+        if not response or response.get("status") is False:
+            return Response(
+                {
+                    "message": response.get("message", "Verification failed"),
+                    "reference": reference,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        data = response.get("data", {})
+        transaction_status = data.get("status")
+
+        if not transaction_status:
+            return Response(
+                {"error": "Invalid verification response"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
             payment = Payment.objects.get(reference=reference)
-            payment.status = "success"
+
+            # 2. Idempotency check (already successful)
+            if payment.status == Payment.Status.SUCCESS:
+                return Response(
+                    {"message": "Payment already verified"},
+                    status=status.HTTP_200_OK,
+                )
+
+            # 3. Success case
+            if transaction_status == "success":
+                payment.status = Payment.Status.SUCCESS
+                payment.save()
+
+                return Response(
+                    {
+                        "message": "Payment verified successfully",
+                        "reference": reference,
+                        "status": payment.status,
+                    },
+                    status=status.HTTP_200_OK,
+                )
+
+            # 4. All other statuses (failed, pending, reversed, etc.)
+            payment.status = transaction_status
+            payment.gateway_response = data.get("gateway_response")
             payment.save()
 
             return Response(
-                {"message": "Payment marked as success"},
-                status=status.HTTP_200_OK,
+                {
+                    "message": "Payment not successful",
+                    "reference": reference,
+                    "status": transaction_status,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         except Payment.DoesNotExist:
@@ -187,8 +236,6 @@ class MarkPaymentSuccessAPIView(APIView):
                 {"error": "Payment not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-
-
 
 @extend_schema(
     summary="Verify MoMo OTP - paystack",

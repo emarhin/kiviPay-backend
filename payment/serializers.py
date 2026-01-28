@@ -68,3 +68,10 @@ class VerifyPaymentOTPSerializer(serializers.Serializer):
     reference = serializers.CharField(
         help_text="Payment reference returned during charge initialization"
     )
+    
+
+class VerifyPaymentSerializer(serializers.Serializer):
+    reference = serializers.CharField(
+        help_text="Payment reference returned during charge initialization"
+    )
+    
