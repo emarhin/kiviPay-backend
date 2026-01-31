@@ -34,7 +34,7 @@ urlpatterns = [
     path('', include('authentications.urls')),
     path('api/', include('paychannel.urls')),
     path('api/', include('payment.urls')),
-    
+    path('api/', include('ussd.urls')),
     
     
 ]

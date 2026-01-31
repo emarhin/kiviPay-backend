@@ -15,6 +15,7 @@ from .serializers import CreatePaymentSerializer, VerifyPaymentOTPSerializer, Ve
 from paychannel.models import PaymentChannel
 from .paystack import PaystackMobileMoney
 from config.settings import PAYSTACK_SECRET_KEY
+from django.db import transaction
 
 
 # ================================
@@ -145,7 +146,7 @@ class CreatePaymentAPIView(APIView):
 # =========================================
 
 @extend_schema(
-    summary="verify payment and change to success  if verified - payswitch",
+    summary="verify payment and change to success  if verified - paystack",
     description=(
         "This endpoint allows you to verify a payment and mark it as success",
         "if the verification is successful."
@@ -162,19 +163,15 @@ class VerifyPaymentAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        reference = request.data.get("reference")
+        serializer = VerifyPaymentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        reference = serializer.validated_data["reference"]
 
-        if not reference:
-            return Response(
-                {"error": "Payment reference is required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Verify with payment gateway
-        gateway = PaySwitchMobileMoney()
+        # 🔍 Verify with gateway
+        gateway = PaystackMobileMoney()
         response = gateway.verify(reference)
 
-        # 1. Gateway-level failure
+        # ❌ Gateway-level failure
         if not response or response.get("status") is False:
             return Response(
                 {
@@ -185,57 +182,105 @@ class VerifyPaymentAPIView(APIView):
             )
 
         data = response.get("data", {})
-        transaction_status = data.get("status")
+        
+        print("data", data)
+        
+        
+        gateway_status = data.get("status")
 
-        if not transaction_status:
+        if not gateway_status:
             return Response(
                 {"error": "Invalid verification response"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        try:
-            payment = Payment.objects.get(reference=reference)
+        internal_status = map_gateway_status(gateway_status)
 
-            # 2. Idempotency check (already successful)
-            if payment.status == Payment.Status.SUCCESS:
-                return Response(
-                    {"message": "Payment already verified"},
-                    status=status.HTTP_200_OK,
+        try:
+            with transaction.atomic():
+                payment = (
+                    Payment.objects
+                    .select_for_update()
+                    .get(reference=reference)
                 )
 
-            # 3. Success case
-            if transaction_status == "success":
-                payment.status = Payment.Status.SUCCESS
+                # 🔁 Idempotency check
+                if payment.status == Payment.STATUS_SUCCESS:
+                    return Response(
+                        {
+                            "message": "Payment already verified",
+                            "reference": reference,
+                            "status": payment.status,
+                        },
+                        status=status.HTTP_200_OK,
+                    )
+
+                # 🔄 Update payment
+                payment.status = internal_status
+                payment.gateway_response = data.get("gateway_response")
                 payment.save()
 
+                # ✅ Success
+                if internal_status == Payment.STATUS_SUCCESS:
+                    return Response(
+                        {
+                            "message": "Payment verified successfully",
+                            "reference": reference,
+                            "status": payment.status,
+                        },
+                        status=status.HTTP_200_OK,
+                    )
+
+                # ⏳ Still processing
+                if internal_status == Payment.STATUS_PENDING:
+                    return Response(
+                        {
+                            "message": "Payment is still in progress",
+                            "reference": reference,
+                            "status": payment.status,
+                        },
+                        status=status.HTTP_202_ACCEPTED,
+                    )
+
+                # ❌ Failed / Abandoned / Reversed
                 return Response(
                     {
-                        "message": "Payment verified successfully",
+                        "message": "Payment not successful",
                         "reference": reference,
                         "status": payment.status,
+                        "gateway_status": gateway_status,
                     },
-                    status=status.HTTP_200_OK,
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
-
-            # 4. All other statuses (failed, pending, reversed, etc.)
-            payment.status = transaction_status
-            payment.gateway_response = data.get("gateway_response")
-            payment.save()
-
-            return Response(
-                {
-                    "message": "Payment not successful",
-                    "reference": reference,
-                    "status": transaction_status,
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
 
         except Payment.DoesNotExist:
             return Response(
                 {"error": "Payment not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+
+
+def map_gateway_status(gateway_status: str) -> str:
+    """
+    Normalize gateway statuses into internal statuses.
+    """
+
+    if gateway_status == "success":
+        return Payment.STATUS_SUCCESS
+
+    if gateway_status == "failed":
+        return Payment.STATUS_FAILED
+
+    if gateway_status == "abandoned":
+        return Payment.STATUS_ABANDONED
+
+    if gateway_status == "reversed":
+        return Payment.STATUS_REVERSED
+
+    # ongoing, pending, processing, queued
+    return Payment.STATUS_PENDING
+
 
 @extend_schema(
     summary="Verify MoMo OTP - paystack",
@@ -293,7 +338,7 @@ class VerifyPaymentOTPAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        paystack = PaystackMobileMoney(PAYSTACK_SECRET_KEY)
+        paystack = PaystackMobileMoney()
         result = paystack.submit_otp(otp, reference)
         
         print(result)

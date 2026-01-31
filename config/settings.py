@@ -36,7 +36,7 @@ SECRET_KEY = 'django-insecure-e_uh!o(s#day4oj^)c@wmobtek^f939=g=dsn3=t)+261+h-4!
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["kivipay-backend-production.up.railway.app","127.0.0.1"]
+ALLOWED_HOSTS = ["kivipay-backend-production.up.railway.app","127.0.0.1","sonja-knobbier-jeffrey.ngrok-free.dev"]
 
 
 # Application definition
@@ -67,6 +67,9 @@ INSTALLED_APPS = [
     'paychannel',
     'payment',
     'authentications',
+    "ussd",
+    
+    
     'drf_spectacular'
 ]
 

@@ -8,10 +8,19 @@ class Payment(models.Model):
     Each payment made via a reusable paylink.
     Does NOT track the paying user.
     """
+    
+    STATUS_PENDING = "pending"
+    STATUS_SUCCESS = "success"
+    STATUS_FAILED = "failed"
+    STATUS_ABANDONED = "abandoned"
+    STATUS_REVERSED = "reversed"
+
     STATUS_CHOICES = [
-        ("pending", "Pending"),
-        ("success", "Success"),
-        ("failed", "Failed"),
+        (STATUS_PENDING, "Pending"),
+        (STATUS_SUCCESS, "Success"),
+        (STATUS_FAILED, "Failed"),
+        (STATUS_ABANDONED, "Abandoned"),
+        (STATUS_REVERSED, "Reversed"),
     ]
     
     CHANNEL_TYPE = [
