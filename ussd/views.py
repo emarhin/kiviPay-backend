@@ -1,11 +1,14 @@
 import json
 from django.views.decorators.csrf import csrf_exempt
+from rest_framework.decorators import api_view
 from django.http import JsonResponse
 from datetime import datetime
 
 from paychannel.models import PaymentChannel
 from payment.models import Payment
 from payment.paystack import PaystackMobileMoney
+
+from drf_spectacular.utils import extend_schema, OpenApiExample
 
 # In-memory session store (use Redis in production)
 USSD_SESSIONS = {}
@@ -20,6 +23,75 @@ def ussd_response(session_id, message, continue_session, msisdn):
     })
 
 
+
+
+def ussd_response(session_id: str, message: str, continue_session: bool, msisdn: str) -> JsonResponse:
+    """
+    Construct a standard USSD response.
+
+    Args:
+        session_id (str): Unique session identifier for the USSD transaction.
+        message (str): Message to be displayed to the user.
+        continue_session (bool): Whether to keep the USSD session alive.
+        msisdn (str): The phone number of the user.
+
+    Returns:
+        JsonResponse: JSON formatted USSD response.
+    """
+    return JsonResponse({
+        "sessionID": session_id,
+        "message": message,
+        "continueSession": continue_session,
+        "msisdn": msisdn,
+    })
+
+
+@extend_schema(
+    summary="USSD Payment Handler",
+    description=(
+        "This endpoint handles USSD requests for mobile money payments.\n\n"
+        "Flow:\n"
+        "1. User dials USSD code → new session created.\n"
+        "2. Confirm or cancel payment.\n"
+        "3. Initiate Paystack MoMo charge.\n"
+        "4. Prompt for OTP if required.\n"
+        "5. Submit OTP to Paystack for verification."
+    ),
+    request={
+        "application/json": {
+            "type": "object",
+            "properties": {
+                "sessionID": {"type": "string", "description": "Unique USSD session ID"},
+                "msisdn": {"type": "string", "description": "User phone number"},
+                "userData": {"type": "string", "description": "USSD input or OTP"},
+                "network": {"type": "string", "description": "Network provider (default: MTN)"},
+                "userID": {"type": "string", "description": "Optional user ID"},
+                "newSession": {"type": "boolean", "description": "Flag indicating new USSD session"},
+            },
+            "example": {
+                "sessionID": "17698868701279400",
+                "msisdn": "233555268315",
+                "userData": "*928*144*1#",
+                "network": "MTN",
+                "userID": "ESBCSVMTCO_MlhZP",
+                "newSession": True
+            }
+        }
+    },
+      responses={
+        201: {
+            "type": "object",
+            "properties": {
+                "message": {"type": "string"},
+                "payment_reference": {"type": "string"},
+                "status": {"type": "string"},
+            },
+        },
+        404: {"description": "Paylink not found"},
+    },
+    tags=["USSD Payments"],
+)
+@api_view(["POST"])
 @csrf_exempt
 def ussd_handler(request):
     # Parse JSON request
